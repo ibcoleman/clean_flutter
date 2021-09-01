@@ -1,4 +1,7 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 void main() {
   runApp(MyApp());
@@ -46,18 +49,48 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
 
-  void _incrementCounter() {
+  static const platform = MethodChannel('samples.flutter.dev/platformChannel');
+
+  // Get battery level
+  String _batteryLevel = 'Unknown battery level.';
+  String? _errorMessage;
+  TransponderResponse? _transponderResponse;
+
+  Future<void> _getBatteryLevel() async {
+    String batteryLevel;
+    try {
+      final int result = await platform.invokeMethod('getBatteryLevel');
+      batteryLevel = 'Battery level at $result % .';
+    } on PlatformException catch (e) {
+      batteryLevel = 'Failed to get battery level: ${e.message}.';
+    } on MissingPluginException catch (e) {
+      batteryLevel = 'Plugin Not Found: ${e.message}.';
+    }
+
     setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
+      _batteryLevel = batteryLevel;
     });
   }
+
+  Future<void> _getRfidScanResult() async {
+    String resultJSON = "";
+    String? errorMessage;
+    try {
+      resultJSON = await platform.invokeMethod('getRfidScan');
+      print("Got JSON $resultJSON");
+    } on PlatformException catch (e) {
+      errorMessage = 'Failed to get RFID: ${e.message}.';
+    } on MissingPluginException catch (e) {
+      errorMessage = 'Plugin Not Found: ${e.message}.';
+    }
+
+    setState(() {
+      _transponderResponse = TransponderResponse.fromJson(jsonDecode(resultJSON));
+      _errorMessage = errorMessage;
+    });
+  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -94,20 +127,61 @@ class _MyHomePageState extends State<MyHomePage> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: <Widget>[
             Text(
-              'You have pushed the button this many times:',
+              '$_batteryLevel',
             ),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headline4,
-            ),
+            if (_errorMessage!=null)...[
+              Text(
+                '$_errorMessage',
+              ),
+            ],
+            if (_transponderResponse!=null)...[
+              Text(
+                '$_transponderResponse',
+              ),
+            ]
           ],
         ),
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
+        onPressed: () async {
+          _getBatteryLevel();
+          _getRfidScanResult();
+        },
         tooltip: 'Increment',
         child: Icon(Icons.add),
       ), // This trailing comma makes auto-formatting nicer for build methods.
     );
+  }
+}
+
+class TransponderResponse {
+  List<TransponderResponseItem>? transponders;
+
+  static TransponderResponse fromJson(Map<String, dynamic> json) =>
+      TransponderResponse()
+        ..transponders = (json['transponders'] as List<dynamic>?)
+            ?.map((e) => TransponderResponseItem.fromJson(e as Map<String, dynamic>))
+            .toList();
+
+  @override
+  String toString() {
+    return 'TransponderResponse{transponders: $transponders}';
+  }
+}
+
+class TransponderResponseItem {
+  String? epc;
+  int? rssi;
+  DateTime? timestamp;
+
+  static TransponderResponseItem fromJson(Map<String, dynamic> json) =>
+      TransponderResponseItem()
+        ..epc = (json['epc'])
+        ..rssi = json['rssi'] as int?
+        ..timestamp = DateTime.parse(json['timestamp']);
+
+  @override
+  String toString() {
+    return 'TransponderResponseItem{epc: $epc, rssi: $rssi, timestamp: $timestamp}';
   }
 }
