@@ -1,17 +1,10 @@
 import UIKit
 import Flutter
-
-import UIKit
-import Flutter
+import ExternalAccessory
 
 enum ChannelName {
-  static let battery = "samples.flutter.io/battery"
-  static let charging = "samples.flutter.io/charging"
-}
-
-enum BatteryState {
-  static let charging = "charging"
-  static let discharging = "discharging"
+    static let rfidconnect = "samples.flutter.io/rfidconnect"
+    static let rfiddisconnect = "samples.flutter.io/rfiddisconnect"
 }
 
 enum MyFlutterErrorCode {
@@ -21,17 +14,22 @@ enum MyFlutterErrorCode {
 @UIApplicationMain
 @objc class AppDelegate: FlutterAppDelegate, FlutterStreamHandler {
   private var eventSink: FlutterEventSink?
-
+    private var rfidConnectChannel: FlutterEventChannel?
+  //private var accessoryManager: EAAccessoryManager?
+    
   override func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
 
-    GeneratedPluginRegistrant.register(with: self)
     guard let controller = window?.rootViewController as? FlutterViewController else {
       fatalError("rootViewController is not type FlutterViewController")
     }
 
-
-    let chargingChannel = FlutterEventChannel(name: ChannelName.charging, binaryMessenger: controller.binaryMessenger)
-    chargingChannel.setStreamHandler(self)
+    EAAccessoryManager.shared().registerForLocalNotifications()
+    
+    
+    let rfidConnectChannel = FlutterEventChannel(name: ChannelName.rfidconnect, binaryMessenger: controller.binaryMessenger)
+    rfidConnectChannel.setStreamHandler(self)
+    let rfidDisconnectChannel = FlutterEventChannel(name: ChannelName.rfiddisconnect, binaryMessenger: controller.binaryMessenger)
+    rfidDisconnectChannel.setStreamHandler(self)
 
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
@@ -39,39 +37,34 @@ enum MyFlutterErrorCode {
 
 
   public func onListen(withArguments arguments: Any?, eventSink: @escaping FlutterEventSink) -> FlutterError? {
-    self.eventSink = eventSink
-    UIDevice.current.isBatteryMonitoringEnabled = true
-    sendBatteryStateEvent()
-    NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(AppDelegate.onBatteryStateDidChange),
-            name: UIDevice.batteryStateDidChangeNotification,
-            object: nil)
-    return nil
-  }
+    //self.eventSink = eventSink
+    let args = arguments as? [String]
+    switch args?.first {
+    case "connect":
+        NotificationCenter.default.addObserver(forName: NSNotification.Name.EAAccessoryDidConnect, object: nil, queue: OperationQueue.current) { notification in
+            self.sendAccessoryConnectEvent(notification: notification, eventSink: eventSink)
+        }
 
-  @objc private func onBatteryStateDidChange(notification: NSNotification) {
-    sendBatteryStateEvent()
-  }
-
-  private func sendBatteryStateEvent() {
-    guard let eventSink = eventSink else {
-      return
-    }
-
-    switch UIDevice.current.batteryState {
-    case .full:
-      eventSink(BatteryState.charging)
-    case .charging:
-      eventSink(BatteryState.charging)
-    case .unplugged:
-      eventSink(BatteryState.discharging)
+    case "disconnect":
+        NotificationCenter.default.addObserver(forName: NSNotification.Name.EAAccessoryDidDisconnect, object: nil, queue: OperationQueue.current) { notification in
+            self.sendAccessoryDisconnectEvent(notification: notification, eventSink: eventSink)
+        }
     default:
-      eventSink(FlutterError(code: MyFlutterErrorCode.unavailable,
-              message: "Charging status unavailable",
-              details: nil))
+        print("Bad listen argument was \(args?.first ?? "empty")")
     }
+
+    return nil
+
   }
+
+    private func sendAccessoryConnectEvent(notification: Notification, eventSink: FlutterEventSink) {
+        eventSink(notification.description)
+    }
+            
+    private func sendAccessoryDisconnectEvent(notification: Notification, eventSink: FlutterEventSink) {
+        eventSink(notification.description)
+    }
+    
 
   public func onCancel(withArguments arguments: Any?) -> FlutterError? {
     NotificationCenter.default.removeObserver(self)

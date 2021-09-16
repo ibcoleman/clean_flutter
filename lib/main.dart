@@ -30,19 +30,28 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
 
-  static const EventChannel eventChannel = EventChannel('samples.flutter.io/charging');
+//  static const EventChannel eventChannel = EventChannel('samples.flutter.io/charging');
+  static const EventChannel rfidConnectChannel = EventChannel('samples.flutter.io/rfidconnect');
+  static const EventChannel rfidDisconnectChannel = EventChannel('samples.flutter.io/rfiddisconnect');
 
   String _chargingStatus = 'Battery status: unknown';
 
   @override
   void initState() {
     super.initState();
-    eventChannel.receiveBroadcastStream().listen(_onEvent, onError: _onError);
+//    eventChannel.receiveBroadcastStream().listen(_onEvent, onError: _onError);
+    rfidConnectChannel.receiveBroadcastStream(["connect"]).listen(_onRfidConnect, onError: _onError);
+    rfidDisconnectChannel.receiveBroadcastStream(["disconnect"]).listen(_onRfidDisconnect, onError: _onError);
   }
 
-  void _onEvent(Object? event) {
+  void _onRfidConnect(Object? event) {
     setState(() {
-      _chargingStatus = "Battery status: ${event == 'charging' ? '' : 'dis'}charging";
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Connected: $event")));
+    });
+  }
+  void _onRfidDisconnect(Object? event) {
+    setState(() {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Disconnected: $event")));
     });
   }
 
