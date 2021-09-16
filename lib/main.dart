@@ -30,18 +30,14 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
 
-//  static const EventChannel eventChannel = EventChannel('samples.flutter.io/charging');
   static const EventChannel rfidConnectChannel = EventChannel('samples.flutter.io/rfidconnect');
-  static const EventChannel rfidDisconnectChannel = EventChannel('samples.flutter.io/rfiddisconnect');
 
   String _chargingStatus = 'Battery status: unknown';
 
   @override
   void initState() {
     super.initState();
-//    eventChannel.receiveBroadcastStream().listen(_onEvent, onError: _onError);
-    rfidConnectChannel.receiveBroadcastStream(["connect"]).listen(_onRfidConnect, onError: _onError);
-    rfidDisconnectChannel.receiveBroadcastStream(["disconnect"]).listen(_onRfidDisconnect, onError: _onError);
+    rfidConnectChannel.receiveBroadcastStream().listen(_onRfidConnect, onError: _onError);
   }
 
   void _onRfidConnect(Object? event) {
